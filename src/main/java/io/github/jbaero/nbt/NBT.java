@@ -1,19 +1,22 @@
 package io.github.jbaero.nbt;
 
+import com.laytonsmith.PureUtilities.Common.StringUtils;
 import com.laytonsmith.PureUtilities.SimpleVersion;
 import com.laytonsmith.PureUtilities.Version;
+import com.laytonsmith.abstraction.*;
+import com.laytonsmith.abstraction.enums.MCEquipmentSlot;
 import com.laytonsmith.annotations.api;
 import com.laytonsmith.core.ObjectGenerator;
 import com.laytonsmith.core.Static;
+import com.laytonsmith.core.constructs.CArray;
+import com.laytonsmith.core.constructs.CNull;
 import com.laytonsmith.core.constructs.Construct;
 import com.laytonsmith.core.constructs.Target;
 import com.laytonsmith.core.environments.Environment;
-import com.laytonsmith.core.exceptions.CRE.CREFormatException;
-import com.laytonsmith.core.exceptions.CRE.CREIOException;
-import com.laytonsmith.core.exceptions.CRE.CREPluginInternalException;
-import com.laytonsmith.core.exceptions.CRE.CREThrowable;
+import com.laytonsmith.core.exceptions.CRE.*;
 import com.laytonsmith.core.exceptions.ConfigRuntimeException;
 import com.laytonsmith.core.functions.AbstractFunction;
+import com.laytonsmith.core.functions.InventoryManagement;
 
 /**
  * NBT, 2/25/2016 1:35 AM
@@ -42,11 +45,6 @@ public class NBT {
 		public String getName() {
 			return this.getClass().getSimpleName();
 		}
-
-		@Override
-		public Version since() {
-			return new SimpleVersion(0, 1, 0);
-		}
 	}
 
 	@api
@@ -69,7 +67,12 @@ public class NBT {
 
 		@Override
 		public String docs() {
-			return "array {fileLocation} ";
+			return "array {fileLocation} Reads the NBT data of an arbitrary file.";
+		}
+
+		@Override
+		public Version since() {
+			return new SimpleVersion(0, 1, 0);
 		}
 	}
 
@@ -93,7 +96,12 @@ public class NBT {
 
 		@Override
 		public String docs() {
-			return "array {locationArray} ";
+			return "array {locationArray} Reads the NBT data of a single block.";
+		}
+
+		@Override
+		public Version since() {
+			return new SimpleVersion(0, 1, 0);
 		}
 	}
 
@@ -117,7 +125,12 @@ public class NBT {
 
 		@Override
 		public String docs() {
-			return "array {uuid} ";
+			return "array {uuid} Reads the NBT data of an entity.";
+		}
+
+		@Override
+		public Version since() {
+			return new SimpleVersion(0, 1, 0);
 		}
 	}
 
@@ -141,7 +154,125 @@ public class NBT {
 
 		@Override
 		public String docs() {
-			return "array {uuid or exact name} ";
+			return "array {uuid or exact name} Reads the NBT data of a player file.";
+		}
+
+		@Override
+		public Version since() {
+			return new SimpleVersion(0, 1, 0);
+		}
+	}
+
+	@api
+	public static class nbt_read_inventory_item extends NBTFunction
+	{
+
+		@Override
+		public Class<? extends CREThrowable>[] thrown() {
+			return new Class[]{CREPluginInternalException.class, CREFormatException.class, CRERangeException.class};
+		}
+
+		@Override
+		public Construct exec(Target t, Environment env, Construct... args) throws ConfigRuntimeException {
+
+			MCInventory inv = null;
+			if (args[0] instanceof CArray) {
+				MCLocation loc = ObjectGenerator.GetGenerator().location(args[0], null, t);
+				inv = StaticLayer.GetConvertor().GetLocationInventory(loc);
+			}
+			else {
+				MCEntity ent = Static.getEntity(args[0], t);
+				inv = StaticLayer.GetConvertor().GetEntityInventory(ent);
+			}
+
+			if (inv == null) {
+				throw new CREFormatException("The entity or location specified is not capable of having an inventory.", t);
+			}
+
+			try {
+				return Utils.readItem(inv.getItem(Static.getInt32(args[1], t)), t);
+			}
+			catch (ArrayIndexOutOfBoundsException e) {
+				throw new CRERangeException("Index out of bounds for the given inventory type.", t);
+			}
+		}
+
+		@Override
+		public Version since() {
+			return new SimpleVersion(0, 2, 0);
+		}
+
+		@Override
+		public Integer[] numArgs() {
+			return new Integer[]{2};
+		}
+
+		@Override
+		public String docs() {
+			return "array {locationArray, slotNumber | uuid, slotNumber} Reads the NBT data of an item in an inventory."
+					+ " The first argument is either the coordinates of a block, or the uuid of an entity.";
+		}
+	}
+
+	@api
+	public static class nbt_read_equipment_item extends NBTFunction {
+
+		@Override
+		public Class<? extends CREThrowable>[] thrown() {
+			return new Class[]{CREPluginInternalException.class};
+		}
+
+		@Override
+		public Construct exec(Target t, Environment env, Construct... args) throws ConfigRuntimeException {
+
+			MCEntityEquipment eq = Static.getLivingEntity(args[0], t).getEquipment();
+			MCEquipmentSlot slot;
+			try {
+				slot = MCEquipmentSlot.valueOf(args[1].val());
+			}
+			catch (IllegalArgumentException e) {
+				throw new CREFormatException("Invalid slot name.", t);
+			}
+
+			MCItemStack stack = null;
+			switch (slot) {
+				case BOOTS:
+					stack = eq.getBoots();
+					break;
+				case CHESTPLATE:
+					stack = eq.getChestplate();
+					break;
+				case HELMET:
+					stack = eq.getHelmet();
+					break;
+				case WEAPON:
+					stack = eq.getWeapon();
+					break;
+				case LEGGINGS:
+					stack = eq.getLeggings();
+					break;
+				case OFF_HAND:
+					stack = eq.getItemInOffHand();
+					break;
+			}
+
+			return Utils.readItem(stack, t);
+		}
+
+		@Override
+		public Version since() {
+			return new SimpleVersion(0, 2, 0);
+		}
+
+		@Override
+		public Integer[] numArgs() {
+			return new Integer[]{2};
+		}
+
+		@Override
+		public String docs() {
+			return "array {uuid, slotName} Reads the NBT data of an item equipped on an entity. Slot name must be "
+					+ StringUtils.Join(MCEquipmentSlot.values(), ", ", ", or ", " or ");
 		}
 	}
 }

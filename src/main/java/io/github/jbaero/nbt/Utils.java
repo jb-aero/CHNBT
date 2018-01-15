@@ -6,18 +6,13 @@ import com.laytonsmith.abstraction.MCItemStack;
 import com.laytonsmith.abstraction.MCLocation;
 import com.laytonsmith.abstraction.MCOfflinePlayer;
 import com.laytonsmith.abstraction.blocks.MCBlock;
-import com.laytonsmith.core.constructs.CArray;
-import com.laytonsmith.core.constructs.CByteArray;
-import com.laytonsmith.core.constructs.CDouble;
-import com.laytonsmith.core.constructs.CInt;
-import com.laytonsmith.core.constructs.CString;
-import com.laytonsmith.core.constructs.Construct;
-import com.laytonsmith.core.constructs.Target;
+import com.laytonsmith.core.constructs.*;
 import com.laytonsmith.core.exceptions.CRE.CREIOException;
 import com.laytonsmith.core.exceptions.CRE.CREPluginInternalException;
 import me.dpohvar.powernbt.api.NBTCompound;
 import me.dpohvar.powernbt.api.NBTList;
 import me.dpohvar.powernbt.api.NBTManager;
+import org.bukkit.Chunk;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
@@ -39,15 +34,19 @@ public class Utils {
 	public static CArray compound(NBTCompound compound, Target t) {
 		CArray ret = CArray.GetAssociativeArray(t);
 
-		for (Map.Entry<String, Object> entry : compound.entrySet()) {
-			ret.set(entry.getKey(), identify(entry.getValue(), t), t);
+		if (compound != null) {
+			for (Map.Entry<String, Object> entry : compound.entrySet()) {
+				ret.set(entry.getKey(), identify(entry.getValue(), t), t);
+			}
 		}
 
 		return ret;
 	}
 
 	public static Construct identify(Object obj, Target t) {
-		if (obj instanceof NBTCompound) {
+		if (obj == null) {
+			return CNull.NULL;
+		} else if (obj instanceof NBTCompound) {
 			return compound((NBTCompound) obj, t);
 		} else if (obj instanceof NBTList) {
 			return list((NBTList) obj, t);
@@ -111,7 +110,7 @@ public class Utils {
 				Params type = listType(list.getType(), t, list.get(0));
 				for (Object obj : list.toArrayList()) {
 					try {
-						ret.push((Construct) type.type.getConstructor(type.argument, Target.class).newInstance(obj, t), t);
+						ret.push(type.type.getConstructor(type.argument, Target.class).newInstance(obj, t), t);
 					} catch (InstantiationException | IllegalAccessException
 							| InvocationTargetException | NoSuchMethodException e) {
 						throw new CREPluginInternalException(e.getMessage(), t, e);
@@ -165,12 +164,12 @@ public class Utils {
 		return readBlock(loc.getBlock(), t);
 	}
 
-	public static void readChunk(MCChunk chunk) {
-
+	public static CArray readChunk(MCChunk chunk, Target t) {
+		return compound(NBTManager.getInstance().read((Chunk) chunk.getHandle()), t);
 	}
 
-	public static void readChunk(MCLocation loc) {
-		readChunk(loc.getChunk());
+	public static CArray readChunk(MCLocation loc, Target t) {
+		return readChunk(loc.getChunk(), t);
 	}
 
 	public static CArray readEntity(MCEntity ent, Target t) {
