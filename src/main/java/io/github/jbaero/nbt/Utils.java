@@ -48,6 +48,20 @@ public class Utils
 		UNHANDLED
 	}
 
+	// For writing, converts CommandHelper associative array to PowerNBT NBTCompound
+	public static NBTCompound compound(CArray source, Target t)
+	{
+		Map<String, Object> converted = new HashMap<>();
+
+		for (String key : source.stringKeySet())
+		{
+
+		}
+
+		return new NBTCompound(converted);
+	}
+
+	// For writing, converts PowerNBT NBTCompound to CommandHelper associative array
 	public static CArray compound(NBTCompound compound, Target t)
 	{
 		CArray ret = CArray.GetAssociativeArray(t);
@@ -61,7 +75,7 @@ public class Utils
 		return ret;
 	}
 
-	public static Construct identify(Object obj, Target t)
+	public static CArray identify(Object obj, Target t)
 	{
 		CArray ret = CArray.GetAssociativeArray(t);
 		MyNBTType type;
@@ -106,7 +120,8 @@ public class Utils
 			type = MyNBTType.INTARRAY;
 			value = sub;
 		} else if (obj instanceof String) {
-			return new CString((String) obj, t);
+			type = MyNBTType.STRING;
+			value = new CString((String) obj, t);
 		} else {
 			type = MyNBTType.UNHANDLED;
 			value = new CString(obj.getClass().getSimpleName(), t);

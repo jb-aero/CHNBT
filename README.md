@@ -1,5 +1,5 @@
 # CHNBT
-A CommandHelper extension using [PowerNBT](https://www.spigotmc.org/resources/powernbt.9098/)'s , makes all Minecraft data available to CommandHelper/MethodScript scripts.
+A CommandHelper extension using [PowerNBT](https://www.spigotmc.org/resources/powernbt.9098/)'s API, makes all Minecraft data available to CommandHelper/MethodScript scripts.
 
 ## To Build
 1) Clone [PowerNBT](https://github.com/DPOH-VAR/PowerNBT.git)
