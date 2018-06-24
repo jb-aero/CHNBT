@@ -6,7 +6,7 @@
 
 	<groupId>io.github.jbaero</groupId>
 	<artifactId>CHNBT</artifactId>
-	<version>0.2.0</version>
+	<version>0.3.0</version>
 
 	<name>CHNBT</name>
 
@@ -14,16 +14,6 @@
 		<repository>
 			<id>sk89q-mvn2</id>
 			<url>http://mvn2.sk89q.com/repo</url>
-		</repository>
-		<repository>
-			<id>varscript.ru-releases</id>
-			<name>varscript.ru-releases</name>
-			<url>http://repo.varscript.ru/release</url>
-		</repository>
-		<repository>
-			<id>varscript.ru-snapshots</id>
-			<name>varscript.ru-snapshots</name>
-			<url>http://repo.varscript.ru/snapshots</url>
 		</repository>
 	</repositories>
 

@@ -29,9 +29,27 @@ import java.util.Map;
  *
  * @author jb_aero
  */
-public class Utils {
+public class Utils
+{
+	private enum MyNBTType
+	{
+		NULL,
+		COMPOUND,
+		LIST,
+		BYTE,
+		SHORT,
+		INT,
+		LONG,
+		FLOAT,
+		DOUBLE,
+		BYTEARRAY,
+		INTARRAY,
+		STRING,
+		UNHANDLED
+	}
 
-	public static CArray compound(NBTCompound compound, Target t) {
+	public static CArray compound(NBTCompound compound, Target t)
+	{
 		CArray ret = CArray.GetAssociativeArray(t);
 
 		if (compound != null) {
@@ -43,48 +61,84 @@ public class Utils {
 		return ret;
 	}
 
-	public static Construct identify(Object obj, Target t) {
+	public static Construct identify(Object obj, Target t)
+	{
+		CArray ret = CArray.GetAssociativeArray(t);
+		MyNBTType type;
+		Construct value;
+
+		// Compound should not contain null values, this is here for safety
 		if (obj == null) {
-			return CNull.NULL;
+			type = MyNBTType.NULL;
+			value = CNull.NULL;
 		} else if (obj instanceof NBTCompound) {
-			return compound((NBTCompound) obj, t);
+			type = MyNBTType.COMPOUND;
+			value = compound((NBTCompound) obj, t);
 		} else if (obj instanceof NBTList) {
-			return list((NBTList) obj, t);
-		} else if (obj instanceof Byte || obj instanceof Short || obj instanceof Integer || obj instanceof Long) {
-			return new CInt(obj.toString(), t);
-		} else if (obj instanceof Float || obj instanceof Double) {
-			return new CDouble(obj.toString(), t);
+			type = MyNBTType.LIST;
+			value = list((NBTList) obj, t);
+		} else if (obj instanceof Byte) {
+			type = MyNBTType.BYTE;
+			value = new CInt(obj.toString(), t);
+		} else if (obj instanceof Short) {
+			type = MyNBTType.SHORT;
+			value = new CInt(obj.toString(), t);
+		} else if (obj instanceof Integer) {
+			type = MyNBTType.INT;
+			value = new CInt(obj.toString(), t);
+		} else if (obj instanceof Long) {
+			type = MyNBTType.LONG;
+			value = new CInt(obj.toString(), t);
+		} else if (obj instanceof Float) {
+			type = MyNBTType.FLOAT;
+			value = new CDouble(obj.toString(), t);
+		} else if (obj instanceof Double) {
+			type = MyNBTType.DOUBLE;
+			value = new CDouble(obj.toString(), t);
 		} else if (obj instanceof byte[]) {
-			return (new CByteArray(t)).wrap((byte[]) obj, t);
+			type = MyNBTType.BYTEARRAY;
+			value = CByteArray.wrap((byte[]) obj, t);
 		} else if (obj instanceof int[]) {
 			CArray sub = new CArray(t);
 			for (int i : (int[]) obj) {
 				sub.push(new CInt(i, t), t);
 			}
-			return sub;
+			type = MyNBTType.INTARRAY;
+			value = sub;
 		} else if (obj instanceof String) {
 			return new CString((String) obj, t);
 		} else {
-			return new CString(obj.getClass().getSimpleName(), t);
+			type = MyNBTType.UNHANDLED;
+			value = new CString(obj.getClass().getSimpleName(), t);
 		}
+
+		ret.set("type", type.name());
+		ret.set("value", value, t);
+		return ret;
 	}
 
-	public static CArray list(NBTList list, Target t) {
-		CArray ret = new CArray(t);
+	public static CArray list(NBTList list, Target t)
+	{
+		CArray ret = CArray.GetAssociativeArray(t);
+		CArray content = new CArray(t);
+		MyNBTType subtype;
 
 		switch (list.getType()) {
 			case 0:
+				subtype = MyNBTType.NULL;
 				break;
 			case 11: // int arrays
+				subtype = MyNBTType.INTARRAY;
 				for (Object obj : list.toArrayList()) {
 					CArray sub = new CArray(t);
 					for (int i : (int[]) obj) {
 						sub.push(new CInt(i, t), t);
 					}
-					ret.push(sub, t);
+					content.push(sub, t);
 				}
 				break;
 			case 10: // compounds
+				subtype = MyNBTType.COMPOUND;
 				for (Object obj : list.toArrayList()) {
 					NBTCompound toWrite;
 					if (obj instanceof HashMap) {
@@ -93,24 +147,27 @@ public class Utils {
 					} else {
 						toWrite = (NBTCompound) obj;
 					}
-					ret.push(compound(toWrite, t), t);
+					content.push(compound(toWrite, t), t);
 				}
 				break;
 			case 9: // lists
+				subtype = MyNBTType.LIST;
 				for (Object obj : list.toArrayList()) {
-					ret.push(list((NBTList) obj, t), t);
+					content.push(list((NBTList) obj, t), t);
 				}
 				break;
 			case 7: // byte array
+				subtype = MyNBTType.BYTEARRAY;
 				for (Object obj : list.toArrayList()) {
-					ret.push((new CByteArray(t)).wrap((byte[]) obj, t), t);
+					content.push(CByteArray.wrap((byte[]) obj, t), t);
 				}
 				break;
 			default:
 				Params type = listType(list.getType(), t, list.get(0));
+				subtype = type.subtype;
 				for (Object obj : list.toArrayList()) {
 					try {
-						ret.push(type.type.getConstructor(type.argument, Target.class).newInstance(obj, t), t);
+						content.push(type.type.getConstructor(type.argument, Target.class).newInstance(obj, t), t);
 					} catch (InstantiationException | IllegalAccessException
 							| InvocationTargetException | NoSuchMethodException e) {
 						throw new CREPluginInternalException(e.getMessage(), t, e);
@@ -118,10 +175,13 @@ public class Utils {
 				}
 		}
 
+		ret.set("subtype", subtype.name());
+		ret.set("content", content, t);
 		return ret;
 	}
 
-	public static Params listType(byte type, Target t, Object o) {
+	public static Params listType(byte type, Target t, Object o)
+	{
 		try {
 			return listType(type, t);
 		} catch (CREPluginInternalException e) {
@@ -129,29 +189,38 @@ public class Utils {
 		}
 	}
 
-	public static Params listType(byte type, Target t) {
+	public static Params listType(byte type, Target t)
+	{
+		MyNBTType subtype;
 		switch (type) {
 			case 1:
+				return new Params(CInt.class, MyNBTType.BYTE, long.class);
 			case 2:
+				return new Params(CInt.class, MyNBTType.SHORT, long.class);
 			case 3:
+				return new Params(CInt.class, MyNBTType.INT, long.class);
 			case 4:
-				return new Params(CInt.class, long.class);
+				return new Params(CInt.class, MyNBTType.LONG, long.class);
 			case 5:
+				return new Params(CDouble.class, MyNBTType.FLOAT, double.class);
 			case 6:
-				return new Params(CDouble.class, double.class);
+				return new Params(CDouble.class, MyNBTType.DOUBLE, double.class);
 			case 8:
-				return new Params(CString.class, String.class);
+				return new Params(CString.class, MyNBTType.STRING, String.class);
 			default:
 				throw new CREPluginInternalException("Unexpected data tag: " + type, t);
 		}
 	}
 
-	private static class Params {
+	private static class Params
+	{
 		Class<? extends Construct> type;
+		MyNBTType subtype;
 		Class argument;
 
-		Params(Class<? extends Construct> type, Class argument) {
+		Params(Class<? extends Construct> type, MyNBTType subtype, Class argument) {
 			this.type = type;
+			this.subtype = subtype;
 			this.argument = argument;
 		}
 	}
