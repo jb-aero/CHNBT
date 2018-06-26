@@ -6,8 +6,10 @@ import com.laytonsmith.abstraction.MCItemStack;
 import com.laytonsmith.abstraction.MCLocation;
 import com.laytonsmith.abstraction.MCOfflinePlayer;
 import com.laytonsmith.abstraction.blocks.MCBlock;
+import com.laytonsmith.core.Static;
 import com.laytonsmith.core.constructs.*;
 import com.laytonsmith.core.exceptions.CRE.CREIOException;
+import com.laytonsmith.core.exceptions.CRE.CREIllegalArgumentException;
 import com.laytonsmith.core.exceptions.CRE.CREPluginInternalException;
 import me.dpohvar.powernbt.api.NBTCompound;
 import me.dpohvar.powernbt.api.NBTList;
@@ -21,7 +23,9 @@ import org.bukkit.inventory.ItemStack;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -45,37 +49,93 @@ public class Utils
 		BYTEARRAY,
 		INTARRAY,
 		STRING,
-		UNHANDLED
+		UNHANDLED;
+
+		static MyNBTType fromString(String search)
+		{
+			try {
+				return valueOf(search);
+			} catch (IllegalArgumentException iae) {
+				return UNHANDLED;
+			}
+		}
 	}
 
 	// For writing, converts CommandHelper associative array to PowerNBT NBTCompound
-	public static NBTCompound compound(CArray source, Target t)
+	public static NBTCompound ArrayToCompound(CArray source, Target t)
 	{
 		Map<String, Object> converted = new HashMap<>();
 
 		for (String key : source.stringKeySet())
 		{
-
+			converted.put(key, IdentArrayToObject(Static.getArray(source.get(key, t), t), t));
 		}
 
 		return new NBTCompound(converted);
 	}
 
-	// For writing, converts PowerNBT NBTCompound to CommandHelper associative array
-	public static CArray compound(NBTCompound compound, Target t)
+	// For reading, converts PowerNBT NBTCompound to CommandHelper associative array
+	public static CArray CompoundToArray(NBTCompound compound, Target t)
 	{
 		CArray ret = CArray.GetAssociativeArray(t);
 
 		if (compound != null) {
 			for (Map.Entry<String, Object> entry : compound.entrySet()) {
-				ret.set(entry.getKey(), identify(entry.getValue(), t), t);
+				ret.set(entry.getKey(), ObjectToIdentArray(entry.getValue(), t), t);
 			}
 		}
 
 		return ret;
 	}
 
-	public static CArray identify(Object obj, Target t)
+	public static Object ConstructToObject(Construct source, MyNBTType type, Target t)
+	{
+		switch (type)
+		{
+			case BYTE:
+				return Static.getInt8(source, t);
+			case SHORT:
+				return Static.getInt16(source, t);
+			case INT:
+				return Static.getInt32(source, t);
+			case LONG:
+				return Static.getInt(source, t);
+			case FLOAT:
+				return Static.getDouble32(source, t);
+			case DOUBLE:
+				return Static.getDouble(source, t);
+			case BYTEARRAY:
+				return Static.getByteArray(source, t).asByteArrayCopy();
+			case INTARRAY:
+				CArray ca = Static.getArray(source, t);
+				int[] val = new int[(int) ca.size()];
+				for (int i = 0; i < ca.size(); i++)
+				{
+					val[i] = Static.getInt32(ca.get(i, t), t);
+				}
+			case STRING:
+				return source.val();
+			case COMPOUND:
+				return ArrayToCompound(Static.getArray(source, t), t);
+			case LIST:
+				return list(Static.getArray(source, t), t);
+			case NULL:
+				return null;
+			case UNHANDLED:
+				throw new CREIllegalArgumentException("An item in an array passed to an NBT function had type "
+						+ type.name() + ", which is invalid.", t);
+			default:
+				throw new CREPluginInternalException("If you are seeing this message please report it at "
+						+ "https://github.com/jb-aero/CHNBT along with the steps needed to reproduce.", t);
+		}
+	}
+
+	public static Object IdentArrayToObject(CArray item, Target t)
+	{
+		return ConstructToObject(item.get("value", t), MyNBTType.fromString(item.get("type", t).val()), t);
+	}
+
+	public static CArray ObjectToIdentArray(Object obj, Target t)
 	{
 		CArray ret = CArray.GetAssociativeArray(t);
 		MyNBTType type;
@@ -87,7 +147,7 @@ public class Utils
 			value = CNull.NULL;
 		} else if (obj instanceof NBTCompound) {
 			type = MyNBTType.COMPOUND;
-			value = compound((NBTCompound) obj, t);
+			value = CompoundToArray((NBTCompound) obj, t);
 		} else if (obj instanceof NBTList) {
 			type = MyNBTType.LIST;
 			value = list((NBTList) obj, t);
@@ -132,6 +192,20 @@ public class Utils
 		return ret;
 	}
 
+	public static NBTList list(CArray source, Target t)
+	{
+		CArray content = Static.getArray(source.get("content", t), t);
+		MyNBTType subtype = MyNBTType.fromString(source.get("subtype", t).val());
+		List<Object> ret = new ArrayList<>();
+
+		for (Construct c : content.asList())
+		{
+			ret.add(ConstructToObject(c, subtype, t));
+		}
+
+		return new NBTList(ret);
+	}
+
 	public static CArray list(NBTList list, Target t)
 	{
 		CArray ret = CArray.GetAssociativeArray(t);
@@ -162,7 +236,7 @@ public class Utils
 					} else {
 						toWrite = (NBTCompound) obj;
 					}
-					content.push(compound(toWrite, t), t);
+					content.push(CompoundToArray(toWrite, t), t);
 				}
 				break;
 			case 9: // lists
@@ -241,7 +315,7 @@ public class Utils
 	}
 
 	public static CArray readBlock(MCBlock block, Target t) {
-		return compound(NBTManager.getInstance().read((Block) block.getHandle()), t);
+		return CompoundToArray(NBTManager.getInstance().read((Block) block.getHandle()), t);
 	}
 
 	public static CArray readBlock(MCLocation loc, Target t) {
@@ -249,7 +323,7 @@ public class Utils
 	}
 
 	public static CArray readChunk(MCChunk chunk, Target t) {
-		return compound(NBTManager.getInstance().read((Chunk) chunk.getHandle()), t);
+		return CompoundToArray(NBTManager.getInstance().read((Chunk) chunk.getHandle()), t);
 	}
 
 	public static CArray readChunk(MCLocation loc, Target t) {
@@ -257,20 +331,20 @@ public class Utils
 	}
 
 	public static CArray readEntity(MCEntity ent, Target t) {
-		return compound(NBTManager.getInstance().read((Entity) ent.getHandle()), t);
+		return CompoundToArray(NBTManager.getInstance().read((Entity) ent.getHandle()), t);
 	}
 
 	public static CArray readUser(MCOfflinePlayer player, Target t) {
-		return compound(NBTManager.getInstance().readOfflinePlayer((OfflinePlayer) player.getHandle()), t);
+		return CompoundToArray(NBTManager.getInstance().readOfflinePlayer((OfflinePlayer) player.getHandle()), t);
 	}
 
 	public static CArray readItem(MCItemStack item, Target t) {
-		return compound(NBTManager.getInstance().read((ItemStack) item.getHandle()), t);
+		return CompoundToArray(NBTManager.getInstance().read((ItemStack) item.getHandle()), t);
 	}
 
 	public static CArray readFile(File file, Target t) {
 		try {
-			return compound(NBTManager.getInstance().readCompressed(file), t);
+			return CompoundToArray(NBTManager.getInstance().readCompressed(file), t);
 		} catch (FileNotFoundException e) {
 			throw new CREIOException("Could not read file " + file.getAbsolutePath(), t);
 		} catch (Exception e2) {
