@@ -22,6 +22,7 @@ import org.bukkit.inventory.ItemStack;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -349,6 +350,42 @@ public class Utils
 			throw new CREIOException("Could not read file " + file.getAbsolutePath(), t);
 		} catch (Exception e2) {
 			throw new CREPluginInternalException(e2.getMessage(), t);
+		}
+	}
+
+	public static void writeBlock(MCBlock block, CArray data, Target t) {
+		NBTManager.getInstance().write((Block) block.getHandle(), ArrayToCompound(data, t));
+	}
+
+	public static void writeBlock(MCLocation block, CArray data, Target t) {
+		writeBlock(block.getBlock(), data, t);
+	}
+
+	public static void writeChunk(MCChunk chunk, CArray data, Target t) {
+		NBTManager.getInstance().write((Chunk) chunk.getHandle(), ArrayToCompound(data, t));
+	}
+
+	public static void writeChunk(MCLocation chunk, CArray data, Target t) {
+		writeChunk(chunk.getChunk(), data, t);
+	}
+
+	public static void writeEntity(MCEntity ent, CArray data, Target t) {
+		NBTManager.getInstance().write((Entity) ent.getHandle(), ArrayToCompound(data, t));
+	}
+
+	public static void writeUser(MCOfflinePlayer player, CArray data, Target t) {
+		NBTManager.getInstance().writeOfflinePlayer((OfflinePlayer) player.getHandle(), ArrayToCompound(data, t));
+	}
+
+	public static void writeItem(MCItemStack item, CArray data, Target t) {
+		NBTManager.getInstance().write((ItemStack) item.getHandle(), ArrayToCompound(data, t));
+	}
+
+	public static void writeFile(File file, CArray data, Target t) {
+		try {
+			NBTManager.getInstance().writeCompressed(file, ArrayToCompound(data, t));
+		} catch (IOException e) {
+			throw new CREIOException("Could not write to file " + file.getAbsolutePath(), t);
 		}
 	}
 }
