@@ -301,19 +301,7 @@ public class NBT {
 		@Override
 		public Construct exec(Target t, Environment env, Construct... args) throws ConfigRuntimeException {
 
-			MCInventory inv = null;
-			if (args[0] instanceof CArray) {
-				MCLocation loc = ObjectGenerator.GetGenerator().location(args[0], null, t);
-				inv = StaticLayer.GetConvertor().GetLocationInventory(loc);
-			}
-			else {
-				MCEntity ent = Static.getEntity(args[0], t);
-				inv = StaticLayer.GetConvertor().GetEntityInventory(ent);
-			}
-
-			if (inv == null) {
-				throw new CREFormatException("The entity or location specified is not capable of having an inventory.", t);
-			}
+			MCInventory inv = GetInventory(args[0], t);
 
 			try {
 				return Utils.readItem(inv.getItem(Static.getInt32(args[1], t)), t);
@@ -340,6 +328,36 @@ public class NBT {
 		}
 	}
 
+	// TODO make this public in CH
+	private static MCInventory GetInventory(Construct specifier, Target t) {
+		MCInventory inv;
+		if(specifier instanceof CArray) {
+			MCLocation l = ObjectGenerator.GetGenerator().location(specifier, null, t);
+			inv = StaticLayer.GetConvertor().GetLocationInventory(l);
+			if(inv == null) {
+				throw new CREIllegalArgumentException("The location specified is not capable of having an inventory.", t);
+			}
+			return inv;
+		}
+		if(specifier.val().length() == 36 || specifier.val().length() == 32) {
+			try {
+				MCEntity entity = Static.getEntity(specifier, t);
+				inv = StaticLayer.GetConvertor().GetEntityInventory(entity);
+				if(inv == null) {
+					throw new CREIllegalArgumentException("The entity specified is not capable of having an inventory.", t);
+				}
+				return inv;
+			} catch (CREFormatException iae) {
+				// not a UUID
+			}
+		}
+		inv = InventoryManagement.VIRTUAL_INVENTORIES.get(specifier.val());
+		if(inv == null) {
+			throw new CREIllegalArgumentException("An inventory for \"" + specifier.val() + "\" does not exist.", t);
+		}
+		return inv;
+	}
+
 	@api
 	public static class nbt_write_inventory_item extends NBTFunction
 	{
@@ -353,19 +371,7 @@ public class NBT {
 		@Override
 		public Construct exec(Target t, Environment env, Construct... args) throws ConfigRuntimeException {
 
-			MCInventory inv = null;
-			if (args[0] instanceof CArray) {
-				MCLocation loc = ObjectGenerator.GetGenerator().location(args[0], null, t);
-				inv = StaticLayer.GetConvertor().GetLocationInventory(loc);
-			}
-			else {
-				MCEntity ent = Static.getEntity(args[0], t);
-				inv = StaticLayer.GetConvertor().GetEntityInventory(ent);
-			}
-
-			if (inv == null) {
-				throw new CREFormatException("The entity or location specified is not capable of having an inventory.", t);
-			}
+			MCInventory inv = GetInventory(args[0], t);
 
 			try {
 				Utils.writeItem(inv.getItem(Static.getInt32(args[1], t)), Static.getArray(args[2], t), t);
